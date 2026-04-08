@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { Restaurant, RestaurantCreate } from "../types"
+import type { Restaurant } from "../types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,7 +30,7 @@ const PREUS = ["€", "€€", "€€€", "€€€€"]
 interface Props {
   open: boolean
   onClose: () => void
-  onSave: (data: RestaurantCreate) => Promise<void>
+  onSave: (data: Omit<Restaurant, 'id' | 'created_at'>) => Promise<void>
   initial?: Restaurant | null
   persones: string[]
 }
@@ -66,8 +66,7 @@ function StarRating({
 }
 
 export default function AfegirRestaurant({ open, onClose, onSave, initial, persones }: Props) {
-  const [form, setForm] = useState<RestaurantCreate>({
-    nom: initial?.nom ?? "",
+const [form, setForm] = useState<Omit<Restaurant, 'id' | 'created_at'>>({    nom: initial?.nom ?? "",
     adreca: initial?.adreca ?? "",
     barri: initial?.barri ?? "",
     ciutat: initial?.ciutat ?? "Barcelona",

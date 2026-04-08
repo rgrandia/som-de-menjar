@@ -29,7 +29,7 @@ function Stars({ value, max = 5 }: { value: number | null; max?: number }) {
 interface Props {
   restaurant: Restaurant
   onEdit: (r: Restaurant) => void
-  onDelete: (id: number) => void
+onDelete: (id: string) => void
 }
 
 export default function RestaurantCard({ restaurant: r, onEdit, onDelete }: Props) {
