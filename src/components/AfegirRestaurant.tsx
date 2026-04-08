@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import type { Restaurant, RestaurantCreate, Opcions } from "../types"
+import { useState } from "react"
+import type { Restaurant, RestaurantCreate } from "../types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -102,8 +102,8 @@ export default function AfegirRestaurant({ open, onClose, onSave, initial, perso
     try {
       await onSave(form)
       onClose()
-    } catch {
-      setError("Error en desar. Torna-ho a intentar.")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error en desar. Torna-ho a intentar.")
     } finally {
       setSaving(false)
     }
