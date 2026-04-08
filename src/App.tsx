@@ -20,6 +20,8 @@ const FILTRES_INICIALS: Filtres = {
   ordre: "data_afegit",
   ordre_dir: "DESC",
 }
+const NEON_REST_API_URL = import.meta.env.VITE_NEON_REST_API_URL as string | undefined
+const NEON_REST_API_KEY = import.meta.env.VITE_NEON_REST_API_KEY as string | undefined
 
 function buildQuery(f: Filtres): string {
   const params = new URLSearchParams()
@@ -70,9 +72,28 @@ export default function App() {
 
   const fetchOpcions = useCallback(async () => {
     try {
-      const res = await fetch("/api/opcions")
-      const data = await res.json()
-      setOpcions(data)
+      if (NEON_REST_API_URL) {
+        const [barrisRes, ciutatsRes, tipusRes, personesRes] = await Promise.all([
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "barri", barri: "not.is.null", order: "barri.asc" })), { headers: getNeonHeaders() }),
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "ciutat", ciutat: "not.is.null", order: "ciutat.asc" })), { headers: getNeonHeaders() }),
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "tipus_cuina", tipus_cuina: "not.is.null", order: "tipus_cuina.asc" })), { headers: getNeonHeaders() }),
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "afegit_per", afegit_per: "not.is.null", order: "afegit_per.asc" })), { headers: getNeonHeaders() }),
+        ])
+        if (!barrisRes.ok || !ciutatsRes.ok || !tipusRes.ok || !personesRes.ok) return
+        const barrisJson = await barrisRes.json() as Array<{ barri: string | null }>
+        const ciutatsJson = await ciutatsRes.json() as Array<{ ciutat: string | null }>
+        const tipusJson = await tipusRes.json() as Array<{ tipus_cuina: string | null }>
+        const personesJson = await personesRes.json() as Array<{ afegit_per: string | null }>
+        const barris = uniqueStrings(barrisJson.map((x) => x.barri))
+        const ciutats = uniqueStrings(ciutatsJson.map((x) => x.ciutat))
+        const tipus = uniqueStrings(tipusJson.map((x) => x.tipus_cuina))
+        const persones = uniqueStrings(personesJson.map((x) => x.afegit_per))
+        setOpcions({ barris, ciutats, tipus_cuina: tipus, persones })
+      } else {
+        const res = await fetch("/api/opcions")
+        const data = await res.json()
+        setOpcions(data)
+      }
     } catch {
       // silenci
     }
@@ -115,7 +136,12 @@ export default function App() {
 
   async function handleDelete(id: number) {
     if (!confirm("Vols eliminar aquest restaurant?")) return
-    const res = await fetch(`/api/restaurants/${id}`, { method: "DELETE" })
+    const res = NEON_REST_API_URL
+      ? await fetch(
+          neonUrl("restaurants", new URLSearchParams({ id: `eq.${id}`, select: "id" })),
+          { method: "DELETE", headers: getNeonHeaders() }
+        )
+      : await fetch(`/api/restaurants/${id}`, { method: "DELETE" })
     if (!res.ok) {
       toast.error("Error en eliminar")
       return
