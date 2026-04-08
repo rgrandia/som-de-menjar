@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import type { Restaurant, RestaurantCreate, Opcions } from "../types"
+import { useState } from "react"
+import type { Restaurant, RestaurantCreate } from "../types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
