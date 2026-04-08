@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "content": "Instal·lar psycopg2 i configurar routes.py amb schema DB i endpoints REST",
+    "status": "completed"
+  },
+  {
+    "id": "2",
+    "content": "Crear src/types.ts amb tots els tipus TypeScript",
+    "status": "completed"
+  },
+  {
+    "id": "3",
+    "content": "Crear src/components/AfegirRestaurant.tsx - formulari complet",
+    "status": "completed"
+  },
+  {
+    "id": "4",
+    "content": "Crear src/components/RestaurantCard.tsx - targeta de restaurant",
+    "status": "completed"
+  },
+  {
+    "id": "5",
+    "content": "Crear src/components/FiltresCerca.tsx - panell de filtres",
+    "status": "completed"
+  },
+  {
+    "id": "6",
+    "content": "Actualitzar App.tsx amb layout complet i lògica de cerca",
+    "status": "completed"
+  }
+]

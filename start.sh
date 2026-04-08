@@ -18,6 +18,13 @@ fi
 T0=$(date +%s%3N 2>/dev/null || python3 -c "import time;print(int(time.time()*1000))")
 elapsed() { echo $(( $(date +%s%3N 2>/dev/null || python3 -c "import time;print(int(time.time()*1000))") - T0 )); }
 
+# Load .env file if present (for local secrets like NEON_DATABASE_URL)
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
 # Install Python and JS deps in parallel, with lockfile hash guards
 (
   UV_HASH=$(md5sum uv.lock 2>/dev/null | cut -d' ' -f1)

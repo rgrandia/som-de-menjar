@@ -3,6 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+  .font-display {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+}
+
+@layer base {
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
