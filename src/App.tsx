@@ -9,6 +9,7 @@ import FiltresCerca from "./components/FiltresCerca"
 import RestaurantCard from "./components/RestaurantCard"
 import AfegirRestaurant from "./components/AfegirRestaurant"
 import { supabase } from "./lib/supabase"
+import MapaRestaurants from './components/MapaRestaurants'
 
 const FILTRES_INICIALS: Filtres = {
   cerca: "",
@@ -31,6 +32,7 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editant, setEditant] = useState<Restaurant | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [vista, setVista] = useState<'llista' | 'mapa'>('llista')
 
   const uniqueStrings = (values: Array<string | null | undefined>): string[] =>
     [...new Set(values.filter((v): v is string => typeof v === "string" && v.length > 0))]
@@ -180,7 +182,25 @@ export default function App() {
               <p className="text-muted-foreground text-xs">La meva col·lecció personal</p>
             </div>
           </div>
-
+{/* Botons de vista */}
+<div className="flex items-center gap-2">
+  <button
+    onClick={() => setVista('llista')}
+    className={`px-3 py-1 rounded text-sm ${
+      vista === 'llista' ? 'bg-primary text-white' : 'bg-gray-200'
+    }`}
+  >
+    Llista
+  </button>
+  <button
+    onClick={() => setVista('mapa')}
+    className={`px-3 py-1 rounded text-sm ${
+      vista === 'mapa' ? 'bg-primary text-white' : 'bg-gray-200'
+    }`}
+  >
+    Mapa
+  </button>
+</div>
           <Button onClick={handleOpenAdd} size="sm" className="gap-2 shrink-0">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Afegir restaurant</span>
