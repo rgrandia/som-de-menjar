@@ -20,6 +20,8 @@ const FILTRES_INICIALS: Filtres = {
   ordre: "data_afegit",
   ordre_dir: "DESC",
 }
+const NEON_REST_API_URL = import.meta.env.VITE_NEON_REST_API_URL as string | undefined
+const NEON_REST_API_KEY = import.meta.env.VITE_NEON_REST_API_KEY as string | undefined
 
 function buildQuery(f: Filtres): string {
   const params = new URLSearchParams()
@@ -35,6 +37,16 @@ function buildQuery(f: Filtres): string {
   return params.toString()
 }
 
+async function getErrorMessage(res: Response, fallback: string) {
+  try {
+    const body = await res.json()
+    if (typeof body?.detail === "string" && body.detail.trim()) return body.detail
+  } catch {
+    // ignore json parse errors
+  }
+  return fallback
+}
+
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,15 +55,55 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editant, setEditant] = useState<Restaurant | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const uniqueStrings = (values: Array<string | null | undefined>): string[] =>
+    [...new Set(values.filter((v): v is string => typeof v === "string" && v.length > 0))]
+  const getNeonHeaders = () => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (NEON_REST_API_KEY) {
+      headers.apikey = NEON_REST_API_KEY
+      headers.Authorization = `Bearer ${NEON_REST_API_KEY}`
+    }
+    return headers
+  }
+  const neonUrl = (path: string, params?: URLSearchParams) => {
+    if (!NEON_REST_API_URL) throw new Error("Falta VITE_NEON_REST_API_URL")
+    const base = NEON_REST_API_URL.replace(/\/$/, "")
+    const query = params?.toString()
+    return `${base}/${path}${query ? `?${query}` : ""}`
+  }
 
   const fetchRestaurants = useCallback(async (f: Filtres) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/restaurants?${buildQuery(f)}`)
-      const data = await res.json()
+      let data: Restaurant[] = []
+      if (NEON_REST_API_URL) {
+        const params = new URLSearchParams()
+        params.set("select", "*")
+        params.set("order", `${f.ordre}.${f.ordre_dir === "DESC" ? "desc" : "asc"}`)
+        if (f.cerca) {
+          const like = `*${f.cerca}*`
+          params.set("or", `(nom.ilike.${like},barri.ilike.${like},tipus_cuina.ilike.${like},notes.ilike.${like})`)
+        }
+        if (f.barri) params.set("barri", `ilike.*${f.barri}*`)
+        if (f.ciutat) params.set("ciutat", `ilike.*${f.ciutat}*`)
+        if (f.tipus_cuina) params.set("tipus_cuina", `ilike.*${f.tipus_cuina}*`)
+        if (f.preu.length > 0) params.set("preu", `in.(${f.preu.join(",")})`)
+        if (f.puntuacio_min !== null) params.set("puntuacio", `gte.${f.puntuacio_min}`)
+        if (f.visitat !== "tots") params.set("visitat", `eq.${f.visitat === "si"}`)
+
+        const res = await fetch(neonUrl("restaurants", params), {
+          headers: getNeonHeaders(),
+        })
+        if (!res.ok) throw new Error(await getErrorMessage(res, "Error en carregar els restaurants"))
+        data = await res.json()
+      } else {
+        const res = await fetch(`/api/restaurants?${buildQuery(f)}`)
+        if (!res.ok) throw new Error(await getErrorMessage(res, "Error en carregar els restaurants"))
+        data = await res.json()
+      }
       setRestaurants(data)
-    } catch {
-      toast.error("Error en carregar els restaurants")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error en carregar els restaurants")
     } finally {
       setLoading(false)
     }
@@ -59,9 +111,28 @@ export default function App() {
 
   const fetchOpcions = useCallback(async () => {
     try {
-      const res = await fetch("/api/opcions")
-      const data = await res.json()
-      setOpcions(data)
+      if (NEON_REST_API_URL) {
+        const [barrisRes, ciutatsRes, tipusRes, personesRes] = await Promise.all([
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "barri", barri: "not.is.null", order: "barri.asc" })), { headers: getNeonHeaders() }),
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "ciutat", ciutat: "not.is.null", order: "ciutat.asc" })), { headers: getNeonHeaders() }),
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "tipus_cuina", tipus_cuina: "not.is.null", order: "tipus_cuina.asc" })), { headers: getNeonHeaders() }),
+          fetch(neonUrl("restaurants", new URLSearchParams({ select: "afegit_per", afegit_per: "not.is.null", order: "afegit_per.asc" })), { headers: getNeonHeaders() }),
+        ])
+        if (!barrisRes.ok || !ciutatsRes.ok || !tipusRes.ok || !personesRes.ok) return
+        const barrisJson = await barrisRes.json() as Array<{ barri: string | null }>
+        const ciutatsJson = await ciutatsRes.json() as Array<{ ciutat: string | null }>
+        const tipusJson = await tipusRes.json() as Array<{ tipus_cuina: string | null }>
+        const personesJson = await personesRes.json() as Array<{ afegit_per: string | null }>
+        const barris = uniqueStrings(barrisJson.map((x) => x.barri))
+        const ciutats = uniqueStrings(ciutatsJson.map((x) => x.ciutat))
+        const tipus = uniqueStrings(tipusJson.map((x) => x.tipus_cuina))
+        const persones = uniqueStrings(personesJson.map((x) => x.afegit_per))
+        setOpcions({ barris, ciutats, tipus_cuina: tipus, persones })
+      } else {
+        const res = await fetch("/api/opcions")
+        const data = await res.json()
+        setOpcions(data)
+      }
     } catch {
       // silenci
     }
@@ -81,20 +152,31 @@ export default function App() {
 
   async function handleSave(data: RestaurantCreate) {
     if (editant) {
-      const res = await fetch(`/api/restaurants/${editant.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error()
+      const res = NEON_REST_API_URL
+        ? await fetch(
+            neonUrl("restaurants", new URLSearchParams({ id: `eq.${editant.id}`, select: "*" })),
+            { method: "PATCH", headers: getNeonHeaders(), body: JSON.stringify(data) }
+          )
+        : await fetch(`/api/restaurants/${editant.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Error en desar"))
       toast.success("Restaurant actualitzat!")
     } else {
-      const res = await fetch("/api/restaurants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error()
+      const res = NEON_REST_API_URL
+        ? await fetch(neonUrl("restaurants", new URLSearchParams({ select: "*" })), {
+            method: "POST",
+            headers: { ...getNeonHeaders(), Prefer: "return=representation" },
+            body: JSON.stringify(data),
+          })
+        : await fetch("/api/restaurants", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Error en desar"))
       toast.success("Restaurant afegit!")
     }
     setEditant(null)
@@ -104,7 +186,12 @@ export default function App() {
 
   async function handleDelete(id: number) {
     if (!confirm("Vols eliminar aquest restaurant?")) return
-    const res = await fetch(`/api/restaurants/${id}`, { method: "DELETE" })
+    const res = NEON_REST_API_URL
+      ? await fetch(
+          neonUrl("restaurants", new URLSearchParams({ id: `eq.${id}`, select: "id" })),
+          { method: "DELETE", headers: getNeonHeaders() }
+        )
+      : await fetch(`/api/restaurants/${id}`, { method: "DELETE" })
     if (!res.ok) {
       toast.error("Error en eliminar")
       return
