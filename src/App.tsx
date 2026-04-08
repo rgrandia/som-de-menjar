@@ -22,19 +22,6 @@ const FILTRES_INICIALS: Filtres = {
   ordre_dir: "DESC",
 }
 
-function buildQuery(f: Filtres): string {
-  const params = new URLSearchParams()
-  if (f.cerca) params.set("cerca", f.cerca)
-  if (f.barri) params.set("barri", f.barri)
-  if (f.ciutat) params.set("ciutat", f.ciutat)
-  if (f.tipus_cuina) params.set("tipus_cuina", f.tipus_cuina)
-  if (f.preu.length > 0) params.set("preu", f.preu.join(","))
-  if (f.puntuacio_min !== null) params.set("puntuacio_min", String(f.puntuacio_min))
-  if (f.visitat !== "tots") params.set("visitat", f.visitat === "si" ? "true" : "false")
-  params.set("ordre", f.ordre)
-  params.set("ordre_dir", f.ordre_dir)
-  return params.toString()
-}
 
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
@@ -70,10 +57,10 @@ export default function App() {
         query = query.ilike('tipus_cuina', `%${f.tipus_cuina}%`)
       }
       if (f.preu.length > 0) {
-        query = query.in('rang_preu', f.preu)
+        query = query.in('preu', f.preu)
       }
       if (f.puntuacio_min !== null) {
-        query = query.gte('puntuacio_global', f.puntuacio_min)
+        query = query.gte('puntuacio', f.puntuacio_min)
       }
       if (f.visitat !== "tots") {
         query = query.eq('visitat', f.visitat === "si")

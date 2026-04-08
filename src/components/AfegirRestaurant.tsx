@@ -87,8 +87,7 @@ const [form, setForm] = useState<Omit<Restaurant, 'id' | 'created_at'>>({    nom
   const [error, setError] = useState<string | null>(null)
   const [novaPersona, setNovaPersona] = useState(false)
 
-  const set = (k: keyof RestaurantCreate, v: unknown) =>
-    setForm((f) => ({ ...f, [k]: v }))
+const set = (k: keyof Omit<Restaurant, 'id' | 'created_at'>, v: unknown) =>    setForm((f) => ({ ...f, [k]: v }))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

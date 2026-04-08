@@ -5,14 +5,14 @@ export interface Restaurant {
   barri?: string
   ciutat?: string
   tipus_cuina?: string
-  rang_preu?: string
-  puntuacio_global?: number
+  preu?: string
+  puntuacio?: number
   puntuacio_menjar?: number
   puntuacio_servei?: number
   puntuacio_ambient?: number
   telefon?: string
   web?: string
-  google_maps_url?: string
+  maps_url?: string
   afegit_per?: string
   notes?: string
   visitat?: boolean

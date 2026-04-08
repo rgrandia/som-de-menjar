@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Restaurant } from '../types/restaurant'
+import type { Restaurant } from '../types'
 
 // Obtenir tots els restaurants
 export async function getRestaurants() {

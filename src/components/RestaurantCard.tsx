@@ -36,9 +36,9 @@ export default function RestaurantCard({ restaurant: r, onEdit, onDelete }: Prop
   const scoreColor =
     r.puntuacio === null
       ? "bg-muted text-muted-foreground"
-      : r.puntuacio >= 8
+        : (r.puntuacio ?? 0) >= 8
         ? "bg-emerald-500 text-white"
-        : r.puntuacio >= 6
+        : (r.puntuacio ?? 0) >= 6
           ? "bg-amber-500 text-white"
           : "bg-red-500 text-white"
 
@@ -167,7 +167,7 @@ export default function RestaurantCard({ restaurant: r, onEdit, onDelete }: Prop
               <div
                 className={`flex items-center justify-center rounded-xl w-12 h-12 text-xl font-bold ${scoreColor}`}
               >
-                {r.puntuacio % 1 === 0 ? r.puntuacio : r.puntuacio?.toFixed(1)}
+                {r.puntuacio ? (r.puntuacio % 1 === 0 ? r.puntuacio : r.puntuacio.toFixed(1)) : '-'}
               </div>
             ) : (
               <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-muted-foreground text-xs text-center leading-tight">
