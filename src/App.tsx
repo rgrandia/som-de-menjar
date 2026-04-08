@@ -177,7 +177,7 @@ export default function App() {
               <h1 className="font-display font-bold text-foreground text-lg leading-none">
                 SomDeMenjar
               </h1>
-              <p className="text-muted-foreground text-xs">La meva col·lecció personal</p>
+              <p className="text-muted-foreground text-xs">Som de la bona cuina</p>
             </div>
           </div>
 
