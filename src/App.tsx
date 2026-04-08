@@ -55,13 +55,52 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editant, setEditant] = useState<Restaurant | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const uniqueStrings = (values: Array<string | null | undefined>): string[] =>
+    [...new Set(values.filter((v): v is string => typeof v === "string" && v.length > 0))]
+  const getNeonHeaders = () => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (NEON_REST_API_KEY) {
+      headers.apikey = NEON_REST_API_KEY
+      headers.Authorization = `Bearer ${NEON_REST_API_KEY}`
+    }
+    return headers
+  }
+  const neonUrl = (path: string, params?: URLSearchParams) => {
+    if (!NEON_REST_API_URL) throw new Error("Falta VITE_NEON_REST_API_URL")
+    const base = NEON_REST_API_URL.replace(/\/$/, "")
+    const query = params?.toString()
+    return `${base}/${path}${query ? `?${query}` : ""}`
+  }
 
   const fetchRestaurants = useCallback(async (f: Filtres) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/restaurants?${buildQuery(f)}`)
-      if (!res.ok) throw new Error(await getErrorMessage(res, "Error en carregar els restaurants"))
-      const data = await res.json()
+      let data: Restaurant[] = []
+      if (NEON_REST_API_URL) {
+        const params = new URLSearchParams()
+        params.set("select", "*")
+        params.set("order", `${f.ordre}.${f.ordre_dir === "DESC" ? "desc" : "asc"}`)
+        if (f.cerca) {
+          const like = `*${f.cerca}*`
+          params.set("or", `(nom.ilike.${like},barri.ilike.${like},tipus_cuina.ilike.${like},notes.ilike.${like})`)
+        }
+        if (f.barri) params.set("barri", `ilike.*${f.barri}*`)
+        if (f.ciutat) params.set("ciutat", `ilike.*${f.ciutat}*`)
+        if (f.tipus_cuina) params.set("tipus_cuina", `ilike.*${f.tipus_cuina}*`)
+        if (f.preu.length > 0) params.set("preu", `in.(${f.preu.join(",")})`)
+        if (f.puntuacio_min !== null) params.set("puntuacio", `gte.${f.puntuacio_min}`)
+        if (f.visitat !== "tots") params.set("visitat", `eq.${f.visitat === "si"}`)
+
+        const res = await fetch(neonUrl("restaurants", params), {
+          headers: getNeonHeaders(),
+        })
+        if (!res.ok) throw new Error(await getErrorMessage(res, "Error en carregar els restaurants"))
+        data = await res.json()
+      } else {
+        const res = await fetch(`/api/restaurants?${buildQuery(f)}`)
+        if (!res.ok) throw new Error(await getErrorMessage(res, "Error en carregar els restaurants"))
+        data = await res.json()
+      }
       setRestaurants(data)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error en carregar els restaurants")
@@ -113,19 +152,30 @@ export default function App() {
 
   async function handleSave(data: RestaurantCreate) {
     if (editant) {
-      const res = await fetch(`/api/restaurants/${editant.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
+      const res = NEON_REST_API_URL
+        ? await fetch(
+            neonUrl("restaurants", new URLSearchParams({ id: `eq.${editant.id}`, select: "*" })),
+            { method: "PATCH", headers: getNeonHeaders(), body: JSON.stringify(data) }
+          )
+        : await fetch(`/api/restaurants/${editant.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
       if (!res.ok) throw new Error(await getErrorMessage(res, "Error en desar"))
       toast.success("Restaurant actualitzat!")
     } else {
-      const res = await fetch("/api/restaurants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
+      const res = NEON_REST_API_URL
+        ? await fetch(neonUrl("restaurants", new URLSearchParams({ select: "*" })), {
+            method: "POST",
+            headers: { ...getNeonHeaders(), Prefer: "return=representation" },
+            body: JSON.stringify(data),
+          })
+        : await fetch("/api/restaurants", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
       if (!res.ok) throw new Error(await getErrorMessage(res, "Error en desar"))
       toast.success("Restaurant afegit!")
     }
