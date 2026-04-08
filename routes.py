@@ -71,7 +71,7 @@ def init_db():
 
 
 def using_rest_api() -> bool:
-    return bool(NEON_REST_API_URL and not DATABASE_URL)
+    return bool(NEON_REST_API_URL)
 
 
 def rest_headers() -> dict[str, str]:
@@ -154,31 +154,35 @@ def create_app(static_dir: str) -> FastAPI:
         ordre_dir: Optional[str] = Query("DESC"),
     ):
         if using_rest_api():
-            allowed_orders = {"data_afegit", "nom", "puntuacio", "preu", "tipus_cuina", "barri"}
-            if ordre not in allowed_orders:
-                ordre = "data_afegit"
-            direction = "desc" if ordre_dir == "DESC" else "asc"
+            try:
+                allowed_orders = {"data_afegit", "nom", "puntuacio", "preu", "tipus_cuina", "barri"}
+                if ordre not in allowed_orders:
+                    ordre = "data_afegit"
+                direction = "desc" if ordre_dir == "DESC" else "asc"
 
-            params = [("select", "*"), ("order", f"{ordre}.{direction}")]
-            if cerca:
-                like = f"*{cerca}*"
-                params.append(("or", f"(nom.ilike.{like},barri.ilike.{like},tipus_cuina.ilike.{like},notes.ilike.{like})"))
-            if barri:
-                params.append(("barri", f"ilike.*{barri}*"))
-            if ciutat:
-                params.append(("ciutat", f"ilike.*{ciutat}*"))
-            if tipus_cuina:
-                params.append(("tipus_cuina", f"ilike.*{tipus_cuina}*"))
-            if preu:
-                preus = [p for p in preu.split(",") if p]
-                if preus:
-                    params.append(("preu", f"in.({','.join(preus)})"))
-            if puntuacio_min is not None:
-                params.append(("puntuacio", f"gte.{puntuacio_min}"))
-            if visitat is not None:
-                params.append(("visitat", f"eq.{str(visitat).lower()}"))
-            response = rest_request("GET", "restaurants", params=params)
-            return response.json()
+                params = [("select", "*"), ("order", f"{ordre}.{direction}")]
+                if cerca:
+                    like = f"*{cerca}*"
+                    params.append(("or", f"(nom.ilike.{like},barri.ilike.{like},tipus_cuina.ilike.{like},notes.ilike.{like})"))
+                if barri:
+                    params.append(("barri", f"ilike.*{barri}*"))
+                if ciutat:
+                    params.append(("ciutat", f"ilike.*{ciutat}*"))
+                if tipus_cuina:
+                    params.append(("tipus_cuina", f"ilike.*{tipus_cuina}*"))
+                if preu:
+                    preus = [p for p in preu.split(",") if p]
+                    if preus:
+                        params.append(("preu", f"in.({','.join(preus)})"))
+                if puntuacio_min is not None:
+                    params.append(("puntuacio", f"gte.{puntuacio_min}"))
+                if visitat is not None:
+                    params.append(("visitat", f"eq.{str(visitat).lower()}"))
+                response = rest_request("GET", "restaurants", params=params)
+                return response.json()
+            except HTTPException:
+                if not DATABASE_URL:
+                    raise
 
         conditions = []
         params = []
@@ -229,14 +233,18 @@ def create_app(static_dir: str) -> FastAPI:
     @api.post("/restaurants", status_code=201)
     def create_restaurant(data: RestaurantCreate):
         if using_rest_api():
-            response = rest_request(
-                "POST",
-                "restaurants",
-                json=data.model_dump(),
-                params={"select": "*"},
-            )
-            rows = response.json()
-            return rows[0] if rows else {}
+            try:
+                response = rest_request(
+                    "POST",
+                    "restaurants",
+                    json=data.model_dump(),
+                    params={"select": "*"},
+                )
+                rows = response.json()
+                return rows[0] if rows else {}
+            except HTTPException:
+                if not DATABASE_URL:
+                    raise
 
         sql = """
         INSERT INTO restaurants
@@ -259,15 +267,19 @@ def create_app(static_dir: str) -> FastAPI:
     @api.get("/restaurants/{restaurant_id}")
     def get_restaurant(restaurant_id: int):
         if using_rest_api():
-            response = rest_request(
-                "GET",
-                "restaurants",
-                params={"id": f"eq.{restaurant_id}", "select": "*", "limit": "1"},
-            )
-            rows = response.json()
-            if not rows:
-                raise HTTPException(status_code=404, detail="Restaurant no trobat")
-            return rows[0]
+            try:
+                response = rest_request(
+                    "GET",
+                    "restaurants",
+                    params={"id": f"eq.{restaurant_id}", "select": "*", "limit": "1"},
+                )
+                rows = response.json()
+                if not rows:
+                    raise HTTPException(status_code=404, detail="Restaurant no trobat")
+                return rows[0]
+            except HTTPException:
+                if not DATABASE_URL:
+                    raise
 
         with get_conn() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -283,16 +295,20 @@ def create_app(static_dir: str) -> FastAPI:
         if not fields:
             raise HTTPException(status_code=400, detail="Cap camp per actualitzar")
         if using_rest_api():
-            response = rest_request(
-                "PATCH",
-                "restaurants",
-                params={"id": f"eq.{restaurant_id}", "select": "*"},
-                json=fields,
-            )
-            rows = response.json()
-            if not rows:
-                raise HTTPException(status_code=404, detail="Restaurant no trobat")
-            return rows[0]
+            try:
+                response = rest_request(
+                    "PATCH",
+                    "restaurants",
+                    params={"id": f"eq.{restaurant_id}", "select": "*"},
+                    json=fields,
+                )
+                rows = response.json()
+                if not rows:
+                    raise HTTPException(status_code=404, detail="Restaurant no trobat")
+                return rows[0]
+            except HTTPException:
+                if not DATABASE_URL:
+                    raise
 
         set_clause = ", ".join([f"{k} = %s" for k in fields])
         values = list(fields.values()) + [restaurant_id]
@@ -308,15 +324,19 @@ def create_app(static_dir: str) -> FastAPI:
     @api.delete("/restaurants/{restaurant_id}")
     def delete_restaurant(restaurant_id: int):
         if using_rest_api():
-            response = rest_request(
-                "DELETE",
-                "restaurants",
-                params={"id": f"eq.{restaurant_id}", "select": "id"},
-            )
-            rows = response.json()
-            if not rows:
-                raise HTTPException(status_code=404, detail="Restaurant no trobat")
-            return {"ok": True}
+            try:
+                response = rest_request(
+                    "DELETE",
+                    "restaurants",
+                    params={"id": f"eq.{restaurant_id}", "select": "id"},
+                )
+                rows = response.json()
+                if not rows:
+                    raise HTTPException(status_code=404, detail="Restaurant no trobat")
+                return {"ok": True}
+            except HTTPException:
+                if not DATABASE_URL:
+                    raise
 
         with get_conn() as conn:
             with conn.cursor() as cur:
@@ -329,31 +349,35 @@ def create_app(static_dir: str) -> FastAPI:
     @api.get("/opcions")
     def get_opcions():
         if using_rest_api():
-            barris_response = rest_request(
-                "GET",
-                "restaurants",
-                params={"select": "barri", "barri": "not.is.null", "order": "barri.asc"},
-            )
-            ciutats_response = rest_request(
-                "GET",
-                "restaurants",
-                params={"select": "ciutat", "ciutat": "not.is.null", "order": "ciutat.asc"},
-            )
-            tipus_response = rest_request(
-                "GET",
-                "restaurants",
-                params={"select": "tipus_cuina", "tipus_cuina": "not.is.null", "order": "tipus_cuina.asc"},
-            )
-            persones_response = rest_request(
-                "GET",
-                "restaurants",
-                params={"select": "afegit_per", "afegit_per": "not.is.null", "order": "afegit_per.asc"},
-            )
-            barris = sorted({row["barri"] for row in barris_response.json() if row.get("barri")})
-            ciutats = sorted({row["ciutat"] for row in ciutats_response.json() if row.get("ciutat")})
-            tipus = sorted({row["tipus_cuina"] for row in tipus_response.json() if row.get("tipus_cuina")})
-            persones = sorted({row["afegit_per"] for row in persones_response.json() if row.get("afegit_per")})
-            return {"barris": barris, "ciutats": ciutats, "tipus_cuina": tipus, "persones": persones}
+            try:
+                barris_response = rest_request(
+                    "GET",
+                    "restaurants",
+                    params={"select": "barri", "barri": "not.is.null", "order": "barri.asc"},
+                )
+                ciutats_response = rest_request(
+                    "GET",
+                    "restaurants",
+                    params={"select": "ciutat", "ciutat": "not.is.null", "order": "ciutat.asc"},
+                )
+                tipus_response = rest_request(
+                    "GET",
+                    "restaurants",
+                    params={"select": "tipus_cuina", "tipus_cuina": "not.is.null", "order": "tipus_cuina.asc"},
+                )
+                persones_response = rest_request(
+                    "GET",
+                    "restaurants",
+                    params={"select": "afegit_per", "afegit_per": "not.is.null", "order": "afegit_per.asc"},
+                )
+                barris = sorted({row["barri"] for row in barris_response.json() if row.get("barri")})
+                ciutats = sorted({row["ciutat"] for row in ciutats_response.json() if row.get("ciutat")})
+                tipus = sorted({row["tipus_cuina"] for row in tipus_response.json() if row.get("tipus_cuina")})
+                persones = sorted({row["afegit_per"] for row in persones_response.json() if row.get("afegit_per")})
+                return {"barris": barris, "ciutats": ciutats, "tipus_cuina": tipus, "persones": persones}
+            except HTTPException:
+                if not DATABASE_URL:
+                    raise
 
         with get_conn() as conn:
             with conn.cursor() as cur:

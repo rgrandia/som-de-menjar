@@ -102,8 +102,8 @@ export default function AfegirRestaurant({ open, onClose, onSave, initial, perso
     try {
       await onSave(form)
       onClose()
-    } catch {
-      setError("Error en desar. Torna-ho a intentar.")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error en desar. Torna-ho a intentar.")
     } finally {
       setSaving(false)
     }

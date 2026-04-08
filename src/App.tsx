@@ -35,6 +35,16 @@ function buildQuery(f: Filtres): string {
   return params.toString()
 }
 
+async function getErrorMessage(res: Response, fallback: string) {
+  try {
+    const body = await res.json()
+    if (typeof body?.detail === "string" && body.detail.trim()) return body.detail
+  } catch {
+    // ignore json parse errors
+  }
+  return fallback
+}
+
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,10 +58,11 @@ export default function App() {
     setLoading(true)
     try {
       const res = await fetch(`/api/restaurants?${buildQuery(f)}`)
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Error en carregar els restaurants"))
       const data = await res.json()
       setRestaurants(data)
-    } catch {
-      toast.error("Error en carregar els restaurants")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error en carregar els restaurants")
     } finally {
       setLoading(false)
     }
@@ -86,7 +97,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Error en desar"))
       toast.success("Restaurant actualitzat!")
     } else {
       const res = await fetch("/api/restaurants", {
@@ -94,7 +105,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Error en desar"))
       toast.success("Restaurant afegit!")
     }
     setEditant(null)
