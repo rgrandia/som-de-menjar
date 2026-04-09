@@ -8,7 +8,7 @@ export default function Proteccio({ onAcces }: Props) {
   const [contrasenya, setContrasenya] = useState('')
   const [error, setError] = useState(false)
 
-  const CONTRASENYA_CORRECTA = 'somdemenjar2024' // Canvia per la teva contrasenya
+  const CONTRASENYA_CORRECTA = 'Grandia' // Canvia per la teva contrasenya
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
