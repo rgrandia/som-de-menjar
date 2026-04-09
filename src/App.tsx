@@ -9,6 +9,7 @@ import FiltresCerca from "./components/FiltresCerca"
 import RestaurantCard from "./components/RestaurantCard"
 import AfegirRestaurant from "./components/AfegirRestaurant"
 import { supabase } from "./lib/supabase"
+import Proteccio from './components/Proteccio'
 
 const FILTRES_INICIALS: Filtres = {
   cerca: "",
@@ -22,7 +23,6 @@ const FILTRES_INICIALS: Filtres = {
   ordre_dir: "DESC",
 }
 
-
 export default function App() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +31,9 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editant, setEditant] = useState<Restaurant | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [teAcces, setTeAcces] = useState(() => {
+    return localStorage.getItem('acces_permes') === 'true'
+  })
 
   const uniqueStrings = (values: Array<string | null | undefined>): string[] =>
     [...new Set(values.filter((v): v is string => typeof v === "string" && v.length > 0))]
@@ -160,6 +163,11 @@ export default function App() {
   function handleOpenAdd() {
     setEditant(null)
     setDialogOpen(true)
+  }
+
+  // Si no té accés, mostrar pantalla de protecció
+  if (!teAcces) {
+    return <Proteccio onAcces={() => setTeAcces(true)} />
   }
 
   return (
